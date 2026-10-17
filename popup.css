@@ -110,39 +110,14 @@ button.primary:hover { filter: brightness(1.06); }
 .alert b { font-weight: 600; }
 #errorText { color: var(--text); word-break: break-word; }
 
-.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-.stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 7px 0 6px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-}
-.stat span { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.stat small { color: var(--muted); font-size: 11px; }
-.stat.easy span { color: var(--easy); }
-.stat.medium span { color: var(--medium); }
-.stat.hard span { color: var(--hard); }
-
-.streak { margin-top: 7px; color: var(--muted); font-size: 12px; text-align: center; }
-.streak b { color: var(--accent); }
-
-#history { list-style: none; margin: 0; padding: 0; }
-#history li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 0;
-}
-#history .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--muted); }
-#history .dot.Easy { background: var(--easy); }
-#history .dot.Medium { background: var(--medium); }
-#history .dot.Hard { background: var(--hard); }
-#history a, #history .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
-#history a:hover { color: var(--accent); text-decoration: none; }
-#history time { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.last { display: flex; align-items: center; gap: 8px; }
+.last .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--muted); }
+.last .dot.Easy { background: var(--easy); }
+.last .dot.Medium { background: var(--medium); }
+.last .dot.Hard { background: var(--hard); }
+.last a { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.last a:hover { color: var(--accent); text-decoration: none; }
+.last time { color: var(--muted); font-size: 11px; white-space: nowrap; }
 .empty { margin: 0; }
 
 footer {

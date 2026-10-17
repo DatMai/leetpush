@@ -37,13 +37,22 @@
 
   // 2) after Submit, LeetCode moves to /problems/<slug>/submissions/<id>/. Old submissions opened
   //    from the list are filtered out later by their timestamp.
+  //    Event driven through the Navigation API: no timers, nothing runs while you are just reading.
   let lastPath = '';
-  setInterval(() => {
+  function checkUrl() {
     if (location.pathname === lastPath) return;
     lastPath = location.pathname;
     const m = /^\/problems\/[^/]+\/submissions\/(\d+)\/?$/.exec(lastPath);
     if (m) seen(m[1], 'page url');
-  }, 1000);
+  }
+  if (window.navigation) {
+    window.navigation.addEventListener('currententrychange', checkUrl); // pushState / replaceState
+    window.navigation.addEventListener('navigatesuccess', checkUrl);
+  }
+  else setInterval(checkUrl, 1500);
+  addEventListener('popstate', checkUrl);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', checkUrl, { once: true });
+  else checkUrl();
 
   log('ready');
 

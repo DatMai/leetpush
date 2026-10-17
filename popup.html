@@ -53,19 +53,13 @@
   </section>
 
   <section>
-    <div class="stats">
-      <div class="stat"><span id="statTotal">0</span><small>Total</small></div>
-      <div class="stat easy"><span id="statEasy">0</span><small>Easy</small></div>
-      <div class="stat medium"><span id="statMedium">0</span><small>Medium</small></div>
-      <div class="stat hard"><span id="statHard">0</span><small>Hard</small></div>
+    <div class="label">Last push</div>
+    <div class="last" id="last" hidden>
+      <span class="dot" id="lastDot"></span>
+      <a id="lastLink" target="_blank" rel="noopener" title="View commit"></a>
+      <time id="lastTime"></time>
     </div>
-    <div class="streak" id="streak"></div>
-  </section>
-
-  <section>
-    <div class="label">Recent</div>
-    <ul id="history"></ul>
-    <p class="muted empty" id="historyEmpty">Nothing yet. Submit a problem on LeetCode and accepted solutions will show up on GitHub.</p>
+    <p class="muted empty" id="lastEmpty">Nothing yet. Submit a problem on LeetCode and accepted solutions will show up on GitHub.</p>
   </section>
 
   <footer>

@@ -1,5 +1,5 @@
 const $ = (id) => document.getElementById(id);
-const KEYS = ['enabled', 'token', 'repo', 'branch', 'login', 'repoUrl', 'folder', 'solved', 'history', 'days', 'lastError', 'failed'];
+const KEYS = ['enabled', 'token', 'repo', 'branch', 'login', 'repoUrl', 'folder', 'last', 'lastError', 'failed'];
 
 let state = {};
 
@@ -28,58 +28,15 @@ function render() {
     $('retry').hidden = !state.failed;
   }
 
-  const solved = Object.values(state.solved || {});
-  $('statTotal').textContent = solved.length;
-  for (const d of ['Easy', 'Medium', 'Hard']) {
-    $(`stat${d}`).textContent = solved.filter((s) => s.difficulty === d).length;
+  const last = state.last;
+  $('last').hidden = !last;
+  $('lastEmpty').hidden = !!last;
+  if (last) {
+    $('lastDot').className = `dot ${last.difficulty}`;
+    $('lastLink').textContent = `${last.num}. ${last.title}`;
+    $('lastLink').href = last.commitUrl || state.repoUrl || '#';
+    $('lastTime').textContent = ago(last.ts);
   }
-
-  const streak = streakOf(state.days || []);
-  $('streak').innerHTML = '';
-  if (streak > 0) {
-    const b = document.createElement('b');
-    b.textContent = `${streak} ${streak === 1 ? 'day' : 'days'}`;
-    $('streak').append('Current streak: ', b);
-  }
-
-  const list = $('history');
-  list.textContent = '';
-  const items = (state.history || []).slice(0, 4);
-  $('historyEmpty').hidden = items.length > 0;
-  for (const h of items) {
-    const li = document.createElement('li');
-    const dot = document.createElement('span');
-    dot.className = `dot ${h.difficulty}`;
-    const title = document.createElement(h.commitUrl ? 'a' : 'span');
-    title.className = 'title';
-    title.textContent = `${h.num}. ${h.title}`;
-    if (h.commitUrl) {
-      title.href = h.commitUrl;
-      title.target = '_blank';
-      title.rel = 'noopener';
-      title.title = 'View commit';
-    }
-    const time = document.createElement('time');
-    time.textContent = ago(h.ts);
-    li.append(dot, title, time);
-    list.append(li);
-  }
-}
-
-function dayKey(d) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function streakOf(days) {
-  const set = new Set(days);
-  const d = new Date();
-  if (!set.has(dayKey(d))) d.setDate(d.getDate() - 1); // nothing today yet: count up to yesterday
-  let n = 0;
-  while (set.has(dayKey(d))) {
-    n++;
-    d.setDate(d.getDate() - 1);
-  }
-  return n;
 }
 
 function ago(ts) {

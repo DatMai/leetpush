@@ -4,12 +4,12 @@ import { buildFiles, commitMessage } from './lib/format.js';
 import { pushFiles, verifyRepo } from './lib/github.js';
 
 const LEETCODE = 'https://leetcode.com';
-const MAX_HISTORY = 20;
-const MAX_IDS = 300;
 
-// storage.local: { token, repo, branch, login, repoUrl, folder, enabled,
-//                  solved: {slug: {...}}, history: [...], days: ['YYYY-MM-DD'], pushedIds: [...],
-//                  lastError: {message, ts}, failed: {submissionId, submission} }
+// storage.local holds only settings plus two small records, nothing that grows over time:
+//   { token, repo, branch, login, repoUrl, folder, enabled,
+//     last: {num, title, difficulty, ts, commitUrl},   // the latest successful push
+//     lastError: {message, ts}, failed: {...} }         // only while a push needs a retry
+// Pushing the same submission twice is harmless: identical files produce no new commit.
 
 // LeetCode polls /submissions/detail/<id>/check/ (now .../v2/check/) while judging a submission.
 // Watching it at the browser level works no matter how the page wraps fetch. Only the URL is
@@ -68,12 +68,10 @@ function isValidSubmission(sub) {
 }
 
 async function handlePush(submissionId, sub) {
-  const cfg = await chrome.storage.local.get(['token', 'repo', 'branch', 'folder', 'enabled', 'pushedIds']);
+  const cfg = await chrome.storage.local.get(['token', 'repo', 'branch', 'folder', 'enabled']);
   if (!cfg.enabled) return { ok: true, skipped: true, reason: 'Auto-push is turned off' };
   if (!cfg.token || !cfg.repo) return { ok: false, error: 'GitHub is not connected. Open the LeetPush popup to connect' };
   if (!isValidSubmission(sub)) return { ok: false, error: 'Invalid submission data' };
-  const ids = cfg.pushedIds || [];
-  if (ids.includes(String(submissionId))) return { ok: true, skipped: true, reason: 'Already pushed' };
 
   try {
     const result = await pushFiles({
@@ -83,7 +81,7 @@ async function handlePush(submissionId, sub) {
       files: buildFiles(sub, cfg.folder),
       message: commitMessage(sub),
     });
-    await recordSuccess(submissionId, sub, result);
+    await recordSuccess(sub, result);
     flashBadge('✓', '#2f9e6b');
     return { ok: true, ...result };
   } catch (e) {
@@ -102,30 +100,15 @@ async function retryFailed() {
   return handlePush(failed.submissionId, failed.submission);
 }
 
-function dayKey(ts) {
-  const d = new Date(ts);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-async function recordSuccess(submissionId, sub, result) {
-  const s = await chrome.storage.local.get(['solved', 'history', 'days', 'pushedIds']);
+async function recordSuccess(sub, result) {
   const q = sub.question;
-  const now = Date.now();
-  const solved = s.solved || {};
-  solved[q.titleSlug] = {
-    num: q.questionFrontendId || q.questionId,
-    title: q.title,
-    difficulty: q.difficulty,
-    lang: sub.lang && sub.lang.verboseName,
-    ts: now,
-  };
-  const history = [
-    { num: q.questionFrontendId || q.questionId, title: q.title, difficulty: q.difficulty, ts: now, commitUrl: result.commitUrl },
-    ...(s.history || []),
-  ].slice(0, MAX_HISTORY);
-  const days = [...new Set([...(s.days || []), dayKey(now)])].slice(-400);
-  const pushedIds = [...(s.pushedIds || []), String(submissionId)].slice(-MAX_IDS);
-  await chrome.storage.local.set({ solved, history, days, pushedIds, lastError: null, failed: null });
+  await chrome.storage.local.set({
+    last: { num: q.questionFrontendId || q.questionId, title: q.title, difficulty: q.difficulty, ts: Date.now(), commitUrl: result.commitUrl },
+    lastError: null,
+    failed: null,
+  });
+  // clean up keys written by earlier versions
+  await chrome.storage.local.remove(['solved', 'history', 'days', 'pushedIds']);
 }
 
 let badgeTimer = 0;

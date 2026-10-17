@@ -16,7 +16,8 @@ judge says **Accepted** your solution lands in your GitHub repository as a singl
 - **Clean layout**: one folder per problem, numbered so they sort in order.
 - **Private by design**: your GitHub token stays in the extension's background worker and is
   never exposed to the LeetCode page. No servers, no analytics.
-- **Progress at a glance**: totals by difficulty, current streak and your latest pushes in the popup.
+- **Lightweight**: no timers, no background polling, no growing cache. It only stores your settings
+  and the latest push, and does nothing while you are not submitting.
 - **Retry**: if a push fails, the popup shows why and lets you push it again with one click.
 
 ## Repository layout
@@ -58,10 +59,10 @@ node --test 'tests/*.test.mjs'
 | Path | Purpose |
 |---|---|
 | `inject/leetcode.js` | Waits for the judge result, loads the submission details, shows the on-page toast |
-| `background.js` | Notices new submissions, holds the token, pushes to GitHub, keeps stats |
+| `background.js` | Notices new submissions, holds the token, pushes to GitHub |
 | `lib/github.js` | GitHub API: one commit per push through the Git Data API |
 | `lib/format.js` | Builds the files and commit message |
-| `popup.*` | Settings and progress |
+| `popup.*` | Settings and the latest push |
 
 ---
 
