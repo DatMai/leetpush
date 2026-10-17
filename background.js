@@ -21,11 +21,13 @@ const PROBLEM_URL = /^https:\/\/leetcode\.com\/problems\/[^/]+/;
 const SUBMISSION_URL = /^https:\/\/leetcode\.com\/problems\/[^/]+\/submissions\/(\d+)\/?/;
 const AUTO_MAX_AGE_S = 15 * 60; // auto mode ignores old submissions opened from the list
 
-chrome.runtime.onInstalled.addListener(async () => {
-  // clean up keys and scripts left by earlier versions
-  await chrome.storage.local.remove(['enabled', 'solved', 'history', 'days', 'pushedIds', 'lastError', 'failed']);
-  const old = await chrome.scripting.getRegisteredContentScripts().catch(() => []);
-  if (old.length) await chrome.scripting.unregisterContentScripts().catch(() => {});
+// Earlier versions registered a page script ('auto') that no longer exists; Chrome keeps such
+// registrations across reloads, so drop it whenever the worker starts.
+chrome.scripting.unregisterContentScripts({ ids: ['auto'] }).catch(() => {});
+
+chrome.runtime.onInstalled.addListener(() => {
+  // clean up keys left by earlier versions
+  chrome.storage.local.remove(['enabled', 'solved', 'history', 'days', 'pushedIds', 'lastError', 'failed']);
 });
 
 // ---------------------------------------------------------------- auto mode
