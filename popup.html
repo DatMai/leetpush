@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>LeetPush</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <img src="icons/icon48.png" alt="" width="28" height="28">
+    <h1>LeetPush</h1>
+    <label class="switch" title="Auto-push accepted submissions">
+      <input type="checkbox" id="enabled">
+      <span></span>
+    </label>
+  </header>
+
+  <section id="setup" hidden>
+    <div class="label">Connect GitHub</div>
+    <form id="connectForm">
+      <label class="field">Token
+        <input type="password" id="token" autocomplete="off" spellcheck="false" placeholder="github_pat_…">
+      </label>
+      <label class="field">Repository
+        <input type="text" id="repo" autocomplete="off" spellcheck="false" placeholder="your-name/leetcode">
+      </label>
+      <label class="field">Subfolder <span class="opt">(optional)</span>
+        <input type="text" id="folder" autocomplete="off" spellcheck="false" placeholder="e.g. leetcode">
+      </label>
+      <button type="submit" id="connectBtn" class="primary">Connect</button>
+      <p class="error" id="connectError" hidden></p>
+    </form>
+    <p class="hint">
+      <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Create a fine-grained token</a>
+      with access to your solutions repository only and <b>Contents: Read and write</b>.
+      The token stays on this device.
+    </p>
+  </section>
+
+  <section id="account" hidden>
+    <div class="row">
+      <div class="who">
+        <a id="repoLink" target="_blank" rel="noopener"></a>
+        <div class="muted" id="repoMeta"></div>
+      </div>
+      <button type="button" id="disconnect">Disconnect</button>
+    </div>
+  </section>
+
+  <section id="errorBox" class="alert" hidden>
+    <div><b>The last push failed</b><div id="errorText"></div></div>
+    <button type="button" id="retry" class="primary">Retry</button>
+  </section>
+
+  <section>
+    <div class="stats">
+      <div class="stat"><span id="statTotal">0</span><small>Total</small></div>
+      <div class="stat easy"><span id="statEasy">0</span><small>Easy</small></div>
+      <div class="stat medium"><span id="statMedium">0</span><small>Medium</small></div>
+      <div class="stat hard"><span id="statHard">0</span><small>Hard</small></div>
+    </div>
+    <div class="streak" id="streak"></div>
+  </section>
+
+  <section>
+    <div class="label">Recent</div>
+    <ul id="history"></ul>
+    <p class="muted empty" id="historyEmpty">Nothing yet. Submit a problem on LeetCode and accepted solutions will show up on GitHub.</p>
+  </section>
+
+  <footer>
+    <a href="https://leetcode.com/problemset/" target="_blank" rel="noopener">Open LeetCode</a>
+    <span>© 2026 <a href="https://anhemsoftware.com" target="_blank" rel="noopener">AnhEmSoftware</a></span>
+  </footer>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
