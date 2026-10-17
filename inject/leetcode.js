@@ -20,15 +20,32 @@
   }
 }`;
 
+  const log = (...args) => console.info('[LeetPush]', ...args);
   const handled = new Set();
 
-  chrome.runtime.onMessage.addListener((msg) => {
-    if (!msg || msg.type !== 'submission-started') return;
-    const id = String(msg.submissionId);
+  function seen(id, source) {
     if (!/^\d+$/.test(id) || handled.has(id)) return;
     handled.add(id);
+    log(`submission ${id} detected (${source})`);
     handleSubmission(id);
+  }
+
+  // 1) the background worker saw LeetCode poll the judge for this submission
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (msg && msg.type === 'submission-started') seen(String(msg.submissionId), 'judge request');
   });
+
+  // 2) after Submit, LeetCode moves to /problems/<slug>/submissions/<id>/. Old submissions opened
+  //    from the list are filtered out later by their timestamp.
+  let lastPath = '';
+  setInterval(() => {
+    if (location.pathname === lastPath) return;
+    lastPath = location.pathname;
+    const m = /^\/problems\/[^/]+\/submissions\/(\d+)\/?$/.exec(lastPath);
+    if (m) seen(m[1], 'page url');
+  }, 1000);
+
+  log('ready');
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -59,9 +76,9 @@
       }
       if (sub && sub.code && typeof sub.statusCode === 'number' && sub.statusCode !== 0) break;
     }
-    if (!sub || !sub.code || typeof sub.statusCode !== 'number') return;
-    if (sub.statusCode !== 10) return; // not accepted
-    if (sub.timestamp && Date.now() / 1000 - sub.timestamp > MAX_AGE_S) return; // an old submission
+    if (!sub || !sub.code || typeof sub.statusCode !== 'number') return log(`submission ${id}: no judged result from LeetCode`);
+    if (sub.statusCode !== 10) return log(`submission ${id}: not accepted (status ${sub.statusCode})`);
+    if (sub.timestamp && Date.now() / 1000 - sub.timestamp > MAX_AGE_S) return log(`submission ${id}: older than 15 minutes, skipped`);
     toast('Pushing to GitHub…', 'info');
     let res;
     try {
@@ -69,6 +86,7 @@
     } catch (e) {
       res = { ok: false, error: String(e && e.message || e) };
     }
+    log(`submission ${id}:`, res && res.ok ? (res.skipped ? res.reason : res.commitUrl) : res && res.error);
     if (!res) return;
     if (res.ok && res.skipped) toast(res.reason || 'Already pushed', 'info');
     else if (res.ok) toast(res.unchanged ? 'No changes since the last push' : 'Pushed to GitHub', 'success', res.commitUrl);
