@@ -16,7 +16,8 @@
   },
   "permissions": [
     "storage",
-    "scripting"
+    "scripting",
+    "webNavigation"
   ],
   "host_permissions": [
     "https://leetcode.com/*",

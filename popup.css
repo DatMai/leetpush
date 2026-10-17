@@ -170,5 +170,20 @@ footer span a:hover { color: var(--accent); text-decoration: none; }
 #modeHint { margin: 6px 0 8px; }
 #push { width: 100%; padding: 7px; }
 .target { margin: 6px 0 0; text-align: center; }
-.result { margin: 6px 0 0; font-size: 12px; text-align: center; color: var(--easy); }
-.result.error { color: var(--danger); }
+#manualBox { margin-bottom: 8px; }
+.status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 12px;
+}
+.status .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--muted); }
+.status.pushing .dot { background: var(--accent); animation: pulse 1s ease-in-out infinite; }
+.status.done .dot { background: var(--easy); }
+.status.error { color: var(--danger); }
+.status.error .dot { background: var(--danger); }
+@keyframes pulse { 50% { opacity: 0.3; } }

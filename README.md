@@ -14,8 +14,8 @@ GitHub repository, one tidy commit per problem.
 - **Manual** (default): nothing runs on LeetCode. When you want, open a problem and press **Push**
   in the popup or hit `Alt+Shift+P`. On a submission page it pushes that submission; on a problem
   page it pushes your latest accepted solution.
-- **Auto**: every accepted submission is pushed right after you submit. A tiny script is added to
-  leetcode.com only while Auto is on, and removed again when you switch back to Manual.
+- **Auto**: press Submit on LeetCode and an accepted solution is pushed on its own. Progress shows
+  on the page, on the toolbar icon and in the popup. Nothing stays on the page between pushes.
 
 ## Features
 
@@ -66,8 +66,8 @@ node --test 'tests/*.test.mjs'
 
 | Path | Purpose |
 |---|---|
-| `lib/leetcode.js` | Runs in the LeetCode tab when pushing and loads the submission details |
-| `inject/auto.js` | Auto mode only: notices new submissions and shows the on-page toast |
+| `lib/leetcode.js` | Runs in the LeetCode tab while pushing and loads the submission details |
+| `lib/toast.js` | The on-page progress toast, shown only while pushing |
 | `background.js` | Modes, holds the token, pushes to GitHub |
 | `lib/github.js` | GitHub API: one commit per push through the Git Data API |
 | `lib/format.js` | Builds the files and commit message |

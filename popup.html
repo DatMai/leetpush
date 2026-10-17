@@ -49,9 +49,11 @@
       <button type="button" role="radio" data-mode="manual">Manual</button>
     </div>
     <p class="hint" id="modeHint"></p>
-    <button type="button" id="push" class="primary">Push</button>
-    <p class="muted target" id="target"></p>
-    <p class="result" id="result" hidden></p>
+    <div id="manualBox">
+      <button type="button" id="push" class="primary">Push</button>
+      <p class="muted target" id="target"></p>
+    </div>
+    <div class="status" id="status"><span class="dot"></span><span id="statusText"></span></div>
   </section>
 
   <section>

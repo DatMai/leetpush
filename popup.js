@@ -1,17 +1,19 @@
 const $ = (id) => document.getElementById(id);
 const KEYS = ['mode', 'token', 'repo', 'branch', 'login', 'repoUrl', 'folder', 'last'];
 const MODE_HINTS = {
-  auto: 'Pushes each accepted submission right after you submit.',
-  manual: 'Nothing runs on LeetCode until you press Push (or Alt+Shift+P).',
+  auto: 'Every accepted Submit is pushed automatically.',
+  manual: 'Nothing runs until you press Push (or Alt+Shift+P).',
 };
 const SUBMISSION_PATH = /^\/problems\/([^/]+)\/submissions\/(\d+)/;
 const PROBLEM_PATH = /^\/problems\/([^/]+)/;
 
 let state = {};
+let status = null; // live push status from storage.session
 let tab = null;
 
 async function load() {
   state = await chrome.storage.local.get(KEYS);
+  ({ status } = await chrome.storage.session.get('status'));
   if (!tab) [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   render();
 }
@@ -34,6 +36,7 @@ function render() {
   const connected = !!(state.token && state.repo);
   $('setup').hidden = connected;
   $('account').hidden = !connected;
+  $('pushBox').hidden = !connected;
 
   if (connected) {
     $('repoLink').textContent = state.repo;
@@ -43,12 +46,30 @@ function render() {
   }
 
   const mode = state.mode === 'auto' ? 'auto' : 'manual';
-  $('pushBox').hidden = !connected;
   document.querySelectorAll('.seg button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mode === mode)));
   $('modeHint').textContent = MODE_HINTS[mode];
+
   const target = tabTarget();
-  $('push').disabled = !target || pushing;
+  const busy = !!(status && status.state === 'pushing' && Date.now() - status.ts < 60000);
+  $('manualBox').hidden = mode === 'auto';
+  $('push').disabled = !target || busy;
+  $('push').textContent = busy ? 'Pushing…' : 'Push';
   $('target').textContent = target || 'Open a problem on leetcode.com to push it';
+
+  let kind = 'idle';
+  let text = mode === 'auto' ? 'Waiting for your next accepted Submit' : 'Ready';
+  if (busy) {
+    kind = 'pushing';
+    text = 'Pushing to GitHub…';
+  } else if (status && status.state === 'error') {
+    kind = 'error';
+    text = status.error || 'Push failed';
+  } else if (status && status.state === 'done') {
+    kind = 'done';
+    text = status.unchanged ? `Already up to date · ${ago(status.ts)}` : `Pushed · ${ago(status.ts)}`;
+  }
+  $('status').className = `status ${kind}`;
+  $('statusText').textContent = text;
 
   const last = state.last;
   $('last').hidden = !last;
@@ -98,25 +119,13 @@ $('disconnect').addEventListener('click', async () => {
   await load();
 });
 
-let pushing = false;
-
 $('push').addEventListener('click', async () => {
-  pushing = true;
-  $('push').textContent = 'Pushing…';
-  $('push').disabled = true;
-  $('result').hidden = true;
-  let res;
+  // the background worker reports progress through storage.session, which re-renders the popup
   try {
-    res = await chrome.runtime.sendMessage({ type: 'push-tab', tabId: tab.id });
-  } catch (e) {
-    res = { ok: false, error: e.message };
+    await chrome.runtime.sendMessage({ type: 'push-tab', tabId: tab.id });
+  } catch {
+    // shown through the status line
   }
-  pushing = false;
-  $('push').textContent = 'Push';
-  const out = $('result');
-  out.hidden = false;
-  out.className = res && res.ok ? 'result' : 'result error';
-  out.textContent = res && res.ok ? (res.unchanged ? 'Already up to date on GitHub' : 'Pushed to GitHub') : (res && res.error) || 'Push failed';
   await load();
 });
 
@@ -125,7 +134,7 @@ document.querySelectorAll('.seg button').forEach((b) => {
 });
 
 chrome.storage.onChanged.addListener((_changes, area) => {
-  if (area === 'local') load();
+  if (area === 'local' || area === 'session') load();
 });
 
 load();
