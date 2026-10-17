@@ -127,3 +127,8 @@ test('verifyRepo rejects a read-only token', async () => {
   assert.equal(info.login, 'DatMai');
   assert.equal(info.branch, 'main');
 });
+
+test('explains a token that lacks access to the repository', async () => {
+  globalThis.fetch = async () => ({ ok: false, status: 403, text: async () => JSON.stringify({ message: 'Resource not accessible by personal access token' }) });
+  await assert.rejects(pushFiles({ token: 'TEST', repo: 'o/r', branch: 'main', files: [], message: 'm' }), /edit the token, add this repository/);
+});
