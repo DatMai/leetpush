@@ -16,19 +16,23 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://leetcode.com/*"],
-      "js": ["inject/page-hook.js"],
-      "run_at": "document_start",
-      "world": "MAIN"
-    },
-    {
-      "matches": ["https://leetcode.com/*"],
-      "js": ["inject/leetcode.js"],
+      "matches": [
+        "https://leetcode.com/*"
+      ],
+      "js": [
+        "inject/leetcode.js"
+      ],
       "run_at": "document_start"
     }
   ],
-  "permissions": ["storage"],
-  "host_permissions": ["https://leetcode.com/*", "https://api.github.com/*"],
+  "permissions": [
+    "storage",
+    "webRequest"
+  ],
+  "host_permissions": [
+    "https://leetcode.com/*",
+    "https://api.github.com/*"
+  ],
   "action": {
     "default_title": "LeetPush",
     "default_popup": "popup.html",

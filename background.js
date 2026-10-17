@@ -11,6 +11,22 @@ const MAX_IDS = 300;
 //                  solved: {slug: {...}}, history: [...], days: ['YYYY-MM-DD'], pushedIds: [...],
 //                  lastError: {message, ts}, failed: {submissionId, submission} }
 
+// LeetCode polls /submissions/detail/<id>/check/ (now .../v2/check/) while judging a submission.
+// Watching it at the browser level works no matter how the page wraps fetch. Only the URL is
+// read; the content script in that tab then loads the judged submission over GraphQL.
+const seenSubmissions = new Set();
+chrome.webRequest.onCompleted.addListener(
+  (details) => {
+    if (details.tabId < 0) return;
+    const m = /^\/submissions\/detail\/(\d+)\/(?:v\d+\/)?check\/?$/.exec(new URL(details.url).pathname);
+    if (!m || seenSubmissions.has(m[1])) return;
+    seenSubmissions.add(m[1]);
+    if (seenSubmissions.size > 500) seenSubmissions.delete(seenSubmissions.values().next().value);
+    chrome.tabs.sendMessage(details.tabId, { type: 'submission-started', submissionId: m[1] }).catch(() => {});
+  },
+  { urls: ['https://leetcode.com/submissions/detail/*'] },
+);
+
 chrome.runtime.onInstalled.addListener(async () => {
   const { enabled } = await chrome.storage.local.get('enabled');
   if (enabled === undefined) await chrome.storage.local.set({ enabled: true });

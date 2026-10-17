@@ -1,6 +1,7 @@
-// LeetPush: content script (isolated world) on leetcode.com.
-// Receives the "accepted" signal from page-hook.js, asks LeetCode's GraphQL API for the submission
-// details (code, statement, difficulty, runtime...) and hands them to the background worker.
+// LeetPush: content script on leetcode.com.
+// The background worker tells this script when a submission starts being judged. The script waits
+// for the result through LeetCode's GraphQL API and, if it is Accepted, hands the details (code,
+// statement, difficulty, runtime...) to the background worker to push.
 // The GitHub token lives only in the background worker; this script never sees it.
 
 (() => {
@@ -21,13 +22,12 @@
 
   const handled = new Set();
 
-  window.addEventListener('message', (e) => {
-    if (e.source !== window || e.origin !== location.origin) return;
-    const d = e.data;
-    if (!d || d.source !== 'leetpush' || d.type !== 'accepted') return;
-    if (!/^\d+$/.test(String(d.submissionId)) || handled.has(d.submissionId)) return;
-    handled.add(d.submissionId);
-    handleAccepted(String(d.submissionId));
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (!msg || msg.type !== 'submission-started') return;
+    const id = String(msg.submissionId);
+    if (!/^\d+$/.test(id) || handled.has(id)) return;
+    handled.add(id);
+    handleSubmission(id);
   });
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -45,22 +45,23 @@
     return (json && json.data && json.data.submissionDetails) || null;
   }
 
-  async function handleAccepted(id) {
+  const MAX_AGE_S = 15 * 60;
+
+  async function handleSubmission(id) {
+    // wait until the judge has finished: details only carry a status code once judged
     let sub = null;
-    // submission details can lag the judge result by a few seconds
-    for (let attempt = 0; attempt < 4 && !(sub && sub.code); attempt++) {
-      if (attempt) await sleep(attempt * 1500);
+    for (let attempt = 0; attempt < 20; attempt++) {
+      await sleep(attempt < 5 ? 1500 : 3000);
       try {
         sub = await fetchDetails(id);
       } catch {
         sub = null;
       }
+      if (sub && sub.code && typeof sub.statusCode === 'number' && sub.statusCode !== 0) break;
     }
-    if (!sub || !sub.code) {
-      toast('Could not load the submission details from LeetCode', 'error');
-      return;
-    }
-    if (sub.statusCode !== 10) return;
+    if (!sub || !sub.code || typeof sub.statusCode !== 'number') return;
+    if (sub.statusCode !== 10) return; // not accepted
+    if (sub.timestamp && Date.now() / 1000 - sub.timestamp > MAX_AGE_S) return; // an old submission
     toast('Pushing to GitHub…', 'info');
     let res;
     try {

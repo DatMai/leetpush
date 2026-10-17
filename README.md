@@ -11,7 +11,7 @@ judge says **Accepted** your solution lands in your GitHub repository as a singl
 
 ## Features
 
-- **Instant**: reacts to LeetCode's own judge result, no polling or fixed delays.
+- **Automatic**: notices every submission you make and pushes it as soon as it is accepted.
 - **One commit per problem**: the statement, your code and your notes are committed together.
 - **Clean layout**: one folder per problem, numbered so they sort in order.
 - **Private by design**: your GitHub token stays in the extension's background worker and is
@@ -57,9 +57,8 @@ node --test 'tests/*.test.mjs'
 
 | Path | Purpose |
 |---|---|
-| `inject/page-hook.js` | Runs in the page and notices when a submission is accepted |
-| `inject/leetcode.js` | Loads the submission details and shows the on-page toast |
-| `background.js` | Holds the token, pushes to GitHub, keeps stats |
+| `inject/leetcode.js` | Waits for the judge result, loads the submission details, shows the on-page toast |
+| `background.js` | Notices new submissions, holds the token, pushes to GitHub, keeps stats |
 | `lib/github.js` | GitHub API: one commit per push through the Git Data API |
 | `lib/format.js` | Builds the files and commit message |
 | `popup.*` | Settings and progress |
