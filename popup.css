@@ -156,3 +156,19 @@ footer span a:hover { color: var(--accent); text-decoration: none; }
 .switch input:checked + span { background: var(--accent); }
 .switch input:checked + span::before { transform: translateX(16px); }
 .switch input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.seg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 3px;
+}
+.seg button { border: 0; background: transparent; padding: 5px; }
+.seg button[aria-checked="true"] { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+#modeHint { margin: 6px 0 8px; }
+#push { width: 100%; padding: 7px; }
+.target { margin: 6px 0 0; text-align: center; }
+.result { margin: 6px 0 0; font-size: 12px; text-align: center; color: var(--easy); }
+.result.error { color: var(--danger); }

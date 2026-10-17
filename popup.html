@@ -9,10 +9,6 @@
   <header>
     <img src="icons/icon48.png" alt="" width="28" height="28">
     <h1>LeetPush</h1>
-    <label class="switch" title="Auto-push accepted submissions">
-      <input type="checkbox" id="enabled">
-      <span></span>
-    </label>
   </header>
 
   <section id="setup" hidden>
@@ -47,9 +43,15 @@
     </div>
   </section>
 
-  <section id="errorBox" class="alert" hidden>
-    <div><b>The last push failed</b><div id="errorText"></div></div>
-    <button type="button" id="retry" class="primary">Retry</button>
+  <section id="pushBox" hidden>
+    <div class="seg" role="radiogroup" aria-label="Mode">
+      <button type="button" role="radio" data-mode="auto">Auto</button>
+      <button type="button" role="radio" data-mode="manual">Manual</button>
+    </div>
+    <p class="hint" id="modeHint"></p>
+    <button type="button" id="push" class="primary">Push</button>
+    <p class="muted target" id="target"></p>
+    <p class="result" id="result" hidden></p>
   </section>
 
   <section>

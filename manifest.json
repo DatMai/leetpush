@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "LeetPush",
   "version": "1.0.0",
-  "description": "Automatically pushes your accepted LeetCode solutions to GitHub, one commit per problem. © 2026 AnhEmSoftware.",
+  "description": "Push your accepted LeetCode solutions to GitHub, automatically or with one click. © 2026 AnhEmSoftware.",
   "author": "AnhEmSoftware",
   "homepage_url": "https://anhemsoftware.com",
   "icons": {
@@ -14,20 +14,9 @@
     "service_worker": "background.js",
     "type": "module"
   },
-  "content_scripts": [
-    {
-      "matches": [
-        "https://leetcode.com/*"
-      ],
-      "js": [
-        "inject/leetcode.js"
-      ],
-      "run_at": "document_start"
-    }
-  ],
   "permissions": [
     "storage",
-    "webRequest"
+    "scripting"
   ],
   "host_permissions": [
     "https://leetcode.com/*",
@@ -39,6 +28,14 @@
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png"
+    }
+  },
+  "commands": {
+    "push": {
+      "suggested_key": {
+        "default": "Alt+Shift+P"
+      },
+      "description": "Push the current LeetCode submission"
     }
   }
 }

@@ -1,49 +1,84 @@
-// LeetPush: service worker. Holds the GitHub token, receives submissions and pushes them.
+// LeetPush: service worker.
+//
+// Two modes:
+//   manual (default): nothing runs on LeetCode. Press Push in the popup or Alt+Shift+P.
+//   auto: a tiny script (inject/auto.js) is registered on leetcode.com and asks to push each new
+//         accepted submission. It is unregistered again when you switch back to manual.
+//
+// storage.local holds only settings and the latest push, nothing that grows over time:
+//   { mode, token, repo, branch, login, repoUrl, folder, last: {num, title, difficulty, ts, commitUrl} }
+// Pushing the same submission twice is harmless: identical files produce no new commit.
 
 import { buildFiles, commitMessage } from './lib/format.js';
 import { pushFiles, verifyRepo } from './lib/github.js';
+import { collectSubmission } from './lib/leetcode.js';
 
-const LEETCODE = 'https://leetcode.com';
-
-// storage.local holds only settings plus two small records, nothing that grows over time:
-//   { token, repo, branch, login, repoUrl, folder, enabled,
-//     last: {num, title, difficulty, ts, commitUrl},   // the latest successful push
-//     lastError: {message, ts}, failed: {...} }         // only while a push needs a retry
-// Pushing the same submission twice is harmless: identical files produce no new commit.
-
-// LeetCode polls /submissions/detail/<id>/check/ (now .../v2/check/) while judging a submission.
-// Watching it at the browser level works no matter how the page wraps fetch. Only the URL is
-// read; the content script in that tab then loads the judged submission over GraphQL.
-const seenSubmissions = new Set();
-chrome.webRequest.onCompleted.addListener(
-  (details) => {
-    if (details.tabId < 0) return;
-    const m = /^\/submissions\/detail\/(\d+)\/(?:v\d+\/)?check\/?$/.exec(new URL(details.url).pathname);
-    if (!m || seenSubmissions.has(m[1])) return;
-    seenSubmissions.add(m[1]);
-    if (seenSubmissions.size > 500) seenSubmissions.delete(seenSubmissions.values().next().value);
-    chrome.tabs.sendMessage(details.tabId, { type: 'submission-started', submissionId: m[1] }).catch(() => {});
-  },
-  { urls: ['https://leetcode.com/submissions/detail/*'] },
-);
+const PROBLEM_URL = /^https:\/\/leetcode\.com\/problems\/[^/]+/;
+const AUTO_SCRIPT = { id: 'auto', matches: ['https://leetcode.com/*'], js: ['inject/auto.js'], runAt: 'document_idle' };
+const AUTO_MAX_AGE_S = 15 * 60; // auto mode ignores old submissions opened from the list
 
 chrome.runtime.onInstalled.addListener(async () => {
-  const { enabled } = await chrome.storage.local.get('enabled');
-  if (enabled === undefined) await chrome.storage.local.set({ enabled: true });
+  // clean up keys written by earlier versions
+  await chrome.storage.local.remove(['enabled', 'solved', 'history', 'days', 'pushedIds', 'lastError', 'failed']);
+  await syncMode();
+});
+chrome.runtime.onStartup.addListener(syncMode);
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.mode) syncMode(true);
 });
 
-chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (!msg || typeof msg !== 'object') return false;
-  const fromLeetCode = sender.tab && sender.origin === LEETCODE;
-  const fromPopup = !sender.tab && sender.id === chrome.runtime.id;
+async function syncMode(injectOpenTabs = false) {
+  const { mode } = await chrome.storage.local.get('mode');
+  const registered = await chrome.scripting.getRegisteredContentScripts({ ids: [AUTO_SCRIPT.id] });
+  if (mode === 'auto' && !registered.length) {
+    await chrome.scripting.registerContentScripts([AUTO_SCRIPT]);
+    if (injectOpenTabs) {
+      const tabs = await chrome.tabs.query({ url: 'https://leetcode.com/*' });
+      await Promise.all(tabs.map((t) =>
+        chrome.scripting.executeScript({ target: { tabId: t.id }, files: AUTO_SCRIPT.js }).catch(() => {})));
+    }
+  } else if (mode !== 'auto' && registered.length) {
+    await chrome.scripting.unregisterContentScripts({ ids: [AUTO_SCRIPT.id] });
+  }
+}
 
+const autoHandled = new Set();
+
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (!msg || typeof msg !== 'object' || sender.id !== chrome.runtime.id) return false;
   let job = null;
-  if (msg.type === 'push' && fromLeetCode) job = handlePush(msg.submissionId, msg.submission);
-  else if (msg.type === 'connect' && fromPopup) job = connect(msg.token, msg.repo, msg.folder);
-  else if (msg.type === 'retry' && fromPopup) job = retryFailed();
+  if (sender.tab) {
+    if (msg.type === 'auto-push' && sender.origin === 'https://leetcode.com') job = autoPush(sender.tab.id, String(msg.submissionId));
+  } else if (msg.type === 'connect') {
+    job = connect(msg.token, msg.repo, msg.folder);
+  } else if (msg.type === 'push-tab') {
+    job = pushTab(msg.tabId);
+  }
   if (!job) return false;
   job.then(sendResponse, (e) => sendResponse({ ok: false, error: e.message || String(e) }));
   return true;
+});
+
+async function autoPush(tabId, submissionId) {
+  const { mode } = await chrome.storage.local.get('mode');
+  if (mode !== 'auto' || !/^\d+$/.test(submissionId) || autoHandled.has(submissionId)) return { skipped: true };
+  autoHandled.add(submissionId);
+  if (autoHandled.size > 200) autoHandled.delete(autoHandled.values().next().value);
+  const res = await pushTab(tabId, AUTO_MAX_AGE_S);
+  if (res.skipped || res.ok) return res;
+  // auto mode stays quiet about pages that are not your fresh accepted submissions
+  if (/not accepted|No accepted submission/.test(res.error || '')) return { skipped: true };
+  return res;
+}
+
+chrome.commands.onCommand.addListener(async (command) => {
+  if (command !== 'push') return;
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab) return;
+  flashBadge('…', '#6b6f76', 0);
+  const res = await pushTab(tab.id).catch((e) => ({ ok: false, error: e.message }));
+  if (res.ok) flashBadge('✓', '#2f9e6b');
+  else flashBadge('!', '#d9473a', 6000);
 });
 
 async function connect(token, repo, folder) {
@@ -57,7 +92,6 @@ async function connect(token, repo, folder) {
     login: info.login,
     repoUrl: info.htmlUrl,
     folder: String(folder || '').trim(),
-    lastError: null,
   });
   return { ok: true, ...info };
 }
@@ -67,48 +101,35 @@ function isValidSubmission(sub) {
     typeof sub.question.titleSlug === 'string' && /^[a-z0-9-]+$/.test(sub.question.titleSlug);
 }
 
-async function handlePush(submissionId, sub) {
-  const cfg = await chrome.storage.local.get(['token', 'repo', 'branch', 'folder', 'enabled']);
-  if (!cfg.enabled) return { ok: true, skipped: true, reason: 'Auto-push is turned off' };
-  if (!cfg.token || !cfg.repo) return { ok: false, error: 'GitHub is not connected. Open the LeetPush popup to connect' };
-  if (!isValidSubmission(sub)) return { ok: false, error: 'Invalid submission data' };
+async function pushTab(tabId, maxAgeS = 0) {
+  const tab = await chrome.tabs.get(tabId);
+  if (!tab.url || !PROBLEM_URL.test(tab.url)) return { ok: false, error: 'Open a LeetCode problem first' };
+  const cfg = await chrome.storage.local.get(['token', 'repo', 'branch', 'folder']);
+  if (!cfg.token || !cfg.repo) return { ok: false, error: 'Connect GitHub in the LeetPush popup first' };
 
-  try {
-    const result = await pushFiles({
-      token: cfg.token,
-      repo: cfg.repo,
-      branch: cfg.branch || 'main',
-      files: buildFiles(sub, cfg.folder),
-      message: commitMessage(sub),
-    });
-    await recordSuccess(sub, result);
-    flashBadge('✓', '#2f9e6b');
-    return { ok: true, ...result };
-  } catch (e) {
-    await chrome.storage.local.set({
-      lastError: { message: e.message || String(e), ts: Date.now() },
-      failed: { submissionId: String(submissionId), submission: sub },
-    });
-    flashBadge('!', '#d9473a', 0);
-    return { ok: false, error: e.message || String(e) };
-  }
-}
-
-async function retryFailed() {
-  const { failed } = await chrome.storage.local.get('failed');
-  if (!failed) return { ok: false, error: 'Nothing to retry' };
-  return handlePush(failed.submissionId, failed.submission);
-}
-
-async function recordSuccess(sub, result) {
-  const q = sub.question;
-  await chrome.storage.local.set({
-    last: { num: q.questionFrontendId || q.questionId, title: q.title, difficulty: q.difficulty, ts: Date.now(), commitUrl: result.commitUrl },
-    lastError: null,
-    failed: null,
+  const [injection] = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: collectSubmission,
+    args: [new URL(tab.url).pathname],
   });
-  // clean up keys written by earlier versions
-  await chrome.storage.local.remove(['solved', 'history', 'days', 'pushedIds']);
+  const found = injection && injection.result;
+  if (!found) return { ok: false, error: 'Could not read the LeetCode page' };
+  if (found.error) return { ok: false, error: found.error };
+  if (!isValidSubmission(found.submission)) return { ok: false, error: 'Invalid submission data' };
+
+  const sub = found.submission;
+  if (maxAgeS && sub.timestamp && Date.now() / 1000 - sub.timestamp > maxAgeS) return { ok: true, skipped: true };
+  const result = await pushFiles({
+    token: cfg.token,
+    repo: cfg.repo,
+    branch: cfg.branch || 'main',
+    files: buildFiles(sub, cfg.folder),
+    message: commitMessage(sub),
+  });
+  const q = sub.question;
+  const last = { num: q.questionFrontendId || q.questionId, title: q.title, difficulty: q.difficulty, ts: Date.now(), commitUrl: result.commitUrl };
+  await chrome.storage.local.set({ last });
+  return { ok: true, ...result, last };
 }
 
 let badgeTimer = 0;
